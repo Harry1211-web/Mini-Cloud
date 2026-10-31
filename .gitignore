@@ -1,0 +1,16 @@
+# Dữ liệu chạy của container (database, realm, dashboard, bucket) - không đưa lên Git
+*/data/
+
+# Realm Keycloak xuất ra JSON (chứa private key, mật khẩu đã băm)
+authentication-identity-server/import/
+
+# Khóa SSH, file nén, file sao lưu
+*.pem
+*.tgz
+*.bak
+
+# File tạm của hệ điều hành / editor
+.markdown-collab/
+.DS_Store
+Thumbs.db
+__pycache__/
