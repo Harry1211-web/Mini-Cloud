@@ -1,0 +1,37 @@
+[
+    {
+        "id": 1,
+        "student_id": "SV001",
+        "name": "Nguyen Van A",
+        "major": "Cloud Computing",
+        "gpa": 3.85
+    },
+    {
+        "id": 2,
+        "student_id": "SV002",
+        "name": "Tran Thi B",
+        "major": "DevOps Engineering",
+        "gpa": 3.70
+    },
+    {
+        "id": 3,
+        "student_id": "SV003",
+        "name": "Le Van C",
+        "major": "Information Security",
+        "gpa": 3.90
+    },
+    {
+        "id": 4,
+        "student_id": "SV004",
+        "name": "Pham Minh D",
+        "major": "Software Engineering",
+        "gpa": 3.65
+    },
+    {
+        "id": 5,
+        "student_id": "SV005",
+        "name": "Hoang Quoc E",
+        "major": "Data Science",
+        "gpa": 3.80
+    }
+]
