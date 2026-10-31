@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Post 3: Monitoring with Prometheus & Grafana · MyMiniCloud</title>
+  <meta name="description"
+    content="You can't operate what you can't measure. Prometheus pulls metrics from every service; Grafana turns them into charts anyone can read.">
+  <meta name="theme-color" content="#1A6BFF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --ink: #0B2552;
+      --ink-2: #3B5683;
+      --muted: #6A80A6;
+      --sky: #F2F8FF;
+      --paper: #FFFFFF;
+      --line: #D6E4F5;
+      --cobalt: #1A6BFF;
+      --cobalt-ink: #0F55D8;
+      --ok: #12B76A;
+      --t-cloud: #0A9BE0;
+      --t-box: #F2620F;
+      --t-watch: #7C4DFF;
+      --code-bg: #0E2A66;
+      --code-ink: #E8F1FF;
+      --display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+      --body: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      --wrap: 1120px;
+      --measure: 68ch;
+    }
+
+    @media (prefers-color-scheme:dark) {
+      :root {
+        --ink: #E6EEF6;
+        --ink-2: #B4C4D4;
+        --muted: #8DA2B8;
+        --sky: #0C1726;
+        --paper: #122136;
+        --line: #24364D;
+        --cobalt: #7FA6FF;
+        --cobalt-ink: #A9C3FF;
+        --code-bg: #08111D;
+      }
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-text-size-adjust: 100%
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      html {
+        scroll-behavior: auto
+      }
+
+      * {
+        transition: none !important;
+        animation: none !important
+      }
+    }
+
+    body {
+      margin: 0;
+      background: var(--sky);
+      color: var(--ink);
+      font: 400 17px/1.65 var(--body)
+    }
+
+    img {
+      max-width: 100%;
+      display: block
+    }
+
+    a {
+      color: var(--cobalt)
+    }
+
+    a:hover {
+      color: var(--cobalt-ink)
+    }
+
+    :focus-visible {
+      outline: 3px solid #FFB020;
+      outline-offset: 3px;
+      border-radius: 4px
+    }
+
+    .skip {
+      position: absolute;
+      left: 12px;
+      top: -60px;
+      z-index: 50;
+      background: var(--paper);
+      color: var(--ink);
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-weight: 600
+    }
+
+    .skip:focus {
+      top: 12px
+    }
+
+    .wrap {
+      max-width: var(--wrap);
+      margin: 0 auto;
+      padding: 0 24px
+    }
+
+    @media (max-width:640px) {
+      .wrap {
+        padding: 0 16px
+      }
+    }
+
+    /* header */
+    .site-head {
+      position: absolute;
+      inset: 0 0 auto 0;
+      z-index: 10;
+      color: #fff
+    }
+
+    .site-head .wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fff;
+      text-decoration: none;
+      font: 700 19px/1 var(--display);
+      letter-spacing: -.01em
+    }
+
+    .brand svg {
+      width: 30px;
+      height: 30px
+    }
+
+    .brand:hover {
+      color: #fff
+    }
+
+    .nav {
+      display: flex;
+      gap: 4px
+    }
+
+    .nav a {
+      color: #fff;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 15px;
+      padding: 8px 14px;
+      border-radius: 999px
+    }
+
+    .nav a:hover {
+      background: rgba(255, 255, 255, .14);
+      color: #fff
+    }
+
+    .nav a[aria-current=page] {
+      background: rgba(255, 255, 255, .2)
+    }
+
+    /* hero */
+    .hero {
+      position: relative;
+      color: #fff;
+      background: #2C7BEA center/cover no-repeat;
+      isolation: isolate
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background: linear-gradient(180deg, rgba(18, 82, 200, .45) 0%, rgba(40, 130, 255, .08) 38%, rgba(10, 52, 150, .78) 100%)
+    }
+
+    .hero .wrap {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding-top: 120px;
+      padding-bottom: 56px
+    }
+
+    .hero h1 {
+      font: 800 clamp(40px, 7vw, 88px)/.98 var(--display);
+      letter-spacing: -.035em;
+      margin: 0;
+      max-width: 15ch;
+      text-wrap: balance
+    }
+
+    .hero .deck {
+      font-size: clamp(17px, 2vw, 20px);
+      line-height: 1.55;
+      max-width: 56ch;
+      margin: 22px 0 0;
+      color: rgba(255, 255, 255, .9)
+    }
+
+    .credit {
+      position: absolute;
+      right: 16px;
+      bottom: 10px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, .7)
+    }
+
+    .credit a {
+      color: inherit
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font: 600 16px/1 var(--body);
+      padding: 14px 22px;
+      border-radius: 999px;
+      text-decoration: none;
+      border: 1.5px solid transparent;
+      cursor: pointer
+    }
+
+    .btn-solid {
+      background: #fff;
+      color: #0F55D8
+    }
+
+    .btn-solid:hover {
+      background: #FFD84D;
+      color: #0B2552
+    }
+
+    .btn-ghost {
+      color: #fff;
+      border-color: rgba(255, 255, 255, .55)
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, .12);
+      color: #fff
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 32px
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--tc, var(--cobalt))
+    }
+
+    .tag::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: currentColor
+    }
+
+    .t-cloud {
+      --tc: var(--t-cloud)
+    }
+
+    .t-box {
+      --tc: var(--t-box)
+    }
+
+    .t-watch {
+      --tc: var(--t-watch)
+    }
+
+    .hero .tag {
+      color: #fff
+    }
+
+    .hero .tag.t-cloud::before {
+      background: #5FD4FF
+    }
+
+    .hero .tag.t-box::before {
+      background: #FFA25F
+    }
+
+    .hero .tag.t-watch::before {
+      background: #C4A8FF
+    }
+
+    /* sections */
+    .section {
+      padding: 88px 0
+    }
+
+    .section h2 {
+      font: 700 clamp(28px, 3.6vw, 40px)/1.1 var(--display);
+      letter-spacing: -.02em;
+      margin: 0 0 12px;
+      max-width: 22ch
+    }
+
+    .section .lead {
+      color: var(--ink-2);
+      max-width: 60ch;
+      margin: 0 0 40px
+    }
+
+    .meta {
+      font-size: 14px;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 16px
+    }
+
+    /* page transitions (cross-document View Transitions) */
+    @view-transition {
+      navigation: auto
+    }
+
+    .site-head {
+      view-transition-name: site-head
+    }
+
+    ::view-transition-old(root) {
+      animation: vt-out .22s ease-in both
+    }
+
+    ::view-transition-new(root) {
+      animation: vt-in .34s cubic-bezier(.2, .7, .2, 1) .06s both
+    }
+
+    ::view-transition-group(*) {
+      animation-duration: .45s;
+      animation-timing-function: cubic-bezier(.2, .7, .2, 1)
+    }
+
+    ::view-transition-old(site-head),
+    ::view-transition-new(site-head) {
+      animation: none
+    }
+
+    @keyframes vt-out {
+      to {
+        opacity: 0;
+        transform: translateY(-8px)
+      }
+    }
+
+    @keyframes vt-in {
+      from {
+        opacity: 0;
+        transform: translateY(12px)
+      }
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      @view-transition {
+        navigation: none
+      }
+    }
+
+    footer.site-foot {
+      border-top: 1px solid var(--line);
+      padding: 36px 0 48px;
+      font-size: 14px;
+      color: var(--muted)
+    }
+
+    footer.site-foot .wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 32px;
+      justify-content: space-between
+    }
+
+    footer.site-foot a {
+      color: var(--ink-2)
+    }
+
+    .progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      width: 100%;
+      transform-origin: 0 50%;
+      transform: scaleX(0);
+      background: linear-gradient(90deg, #14C8FF, #7C4DFF);
+      z-index: 60
+    }
+
+    .post-hero .wrap {
+      min-height: min(68vh, 640px)
+    }
+
+    .crumbs {
+      font-size: 14px;
+      margin-bottom: 22px;
+      color: rgba(255, 255, 255, .8)
+    }
+
+    .crumbs a {
+      color: #fff
+    }
+
+    .crumbs span {
+      margin: 0 8px;
+      opacity: .6
+    }
+
+    .post-hero h1 {
+      font-size: clamp(36px, 5.6vw, 68px);
+      max-width: 20ch;
+      margin-top: 12px
+    }
+
+    .post-hero .meta {
+      color: rgba(255, 255, 255, .8);
+      margin-top: 20px
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 64px;
+      padding: 64px 0 32px
+    }
+
+    @media (max-width:960px) {
+      .layout {
+        grid-template-columns: 1fr;
+        gap: 24px
+      }
+    }
+
+    .toc {
+      position: sticky;
+      top: 28px;
+      align-self: start;
+      font-size: 14px
+    }
+
+    .toc h2 {
+      font: 600 14px var(--body);
+      color: var(--muted);
+      margin: 0 0 10px
+    }
+
+    .toc ol {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border-left: 2px solid var(--line)
+    }
+
+    .toc a {
+      display: block;
+      padding: 6px 0 6px 14px;
+      margin-left: -2px;
+      border-left: 2px solid transparent;
+      color: var(--ink-2);
+      text-decoration: none;
+      line-height: 1.35
+    }
+
+    .toc a:hover {
+      color: var(--ink)
+    }
+
+    .toc a.active {
+      border-left-color: var(--cobalt);
+      color: var(--ink);
+      font-weight: 600
+    }
+
+    @media (min-width:961px) {
+      .toc summary {
+        display: none
+      }
+    }
+
+    @media (max-width:960px) {
+      .toc {
+        position: static;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px 18px
+      }
+
+      .toc details summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--ink)
+      }
+
+      .toc h2 {
+        display: none
+      }
+    }
+
+    .prose {
+      max-width: var(--measure)
+    }
+
+    .prose>p:first-child {
+      font-size: 20px;
+      line-height: 1.6;
+      color: var(--ink)
+    }
+
+    .prose h2 {
+      font: 700 clamp(26px, 3vw, 34px)/1.15 var(--display);
+      letter-spacing: -.02em;
+      margin: 56px 0 14px;
+      scroll-margin-top: 24px
+    }
+
+    .prose h3 {
+      font: 700 21px/1.25 var(--display);
+      margin: 32px 0 8px
+    }
+
+    .prose p,
+    .prose li {
+      color: var(--ink-2)
+    }
+
+    .prose strong {
+      color: var(--ink);
+      font-weight: 600
+    }
+
+    .prose ul,
+    .prose ol {
+      padding-left: 22px
+    }
+
+    .prose li {
+      margin: 6px 0
+    }
+
+    .prose li::marker {
+      color: var(--muted)
+    }
+
+    .prose :not(pre)>code {
+      font: 500 .86em var(--mono);
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 1px 6px;
+      color: var(--ink)
+    }
+
+    .prose table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+      margin: 24px 0;
+      display: block;
+      overflow-x: auto
+    }
+
+    .prose th,
+    .prose td {
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top
+    }
+
+    .prose thead th {
+      font-weight: 600;
+      color: var(--ink);
+      background: color-mix(in srgb, var(--cobalt) 8%, transparent);
+      border-bottom: 2px solid var(--cobalt);
+      white-space: nowrap
+    }
+
+    .prose td {
+      color: var(--ink-2)
+    }
+
+    .prose td:first-child {
+      color: var(--ink);
+      font-weight: 600
+    }
+
+    .note {
+      border-left: 4px solid var(--tc, var(--cobalt));
+      background: color-mix(in srgb, var(--tc, var(--cobalt)) 9%, var(--paper));
+      padding: 16px 20px;
+      border-radius: 0 10px 10px 0;
+      margin: 28px 0
+    }
+
+    .note p {
+      margin: 0;
+      color: var(--ink)
+    }
+
+    .note b {
+      display: block;
+      margin-bottom: 4px
+    }
+
+    .code {
+      position: relative;
+      margin: 24px 0
+    }
+
+    .code .label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #1A3F8C;
+      color: #C9DCFF;
+      font: 500 13px var(--mono);
+      padding: 8px 10px 8px 16px;
+      border-radius: 10px 10px 0 0
+    }
+
+    .code button {
+      font: 600 12px var(--body);
+      color: #fff;
+      background: rgba(255, 255, 255, .12);
+      border: 0;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer
+    }
+
+    .code button:hover {
+      background: rgba(255, 255, 255, .22)
+    }
+
+    .code pre {
+      margin: 0;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      font: 400 14px/1.65 var(--mono);
+      padding: 18px 18px;
+      border-radius: 0 0 10px 10px;
+      overflow-x: auto
+    }
+
+    .code .c {
+      color: #8FA8D6
+    }
+
+    .code .k {
+      color: #5FD4FF
+    }
+
+    .code .s {
+      color: #FFC46B
+    }
+
+    .pager {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 56px 0 24px;
+      max-width: var(--measure)
+    }
+
+    .pager a {
+      display: block;
+      padding: 18px 20px;
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      text-decoration: none;
+      color: var(--ink);
+      background: var(--paper)
+    }
+
+    .pager a:hover {
+      border-color: var(--cobalt)
+    }
+
+    .pager small {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 4px
+    }
+
+    .pager strong {
+      font: 700 17px/1.3 var(--display)
+    }
+
+    .pager .next {
+      text-align: right;
+      grid-column: 2
+    }
+
+    @media (max-width:640px) {
+      .pager {
+        grid-template-columns: 1fr
+      }
+
+      .pager .next {
+        grid-column: auto
+      }
+    }
+
+    .totop {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 0;
+      background: var(--cobalt);
+      color: #fff;
+      box-shadow: 0 6px 18px rgba(26, 107, 255, .35);
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+      display: grid;
+      place-items: center
+    }
+
+    .totop.show {
+      opacity: 1;
+      pointer-events: auto
+    }
+  </style>
+  <script type="speculationrules">{"prerender":[{"where":{"href_matches":"/*"},"eagerness":"moderate"}]}</script>
+</head>
+
+<body>
+  <a class="skip" href="#main">Skip to main content</a>
+  <div class="progress" aria-hidden="true"></div>
+  <header class="site-head">
+    <div class="wrap">
+      <a class="brand" href="/"><svg viewBox="0 0 32 32" aria-hidden="true">
+          <path fill="currentColor" d="M9.5 25a6.5 6.5 0 0 1-.9-12.94A8.5 8.5 0 0 1 25 13.6 5.7 5.7 0 0 1 24.3 25z"
+            opacity=".95" />
+          <rect x="10" y="16" width="12" height="2.2" rx="1.1" fill="#0F2742" />
+          <rect x="10" y="20" width="8" height="2.2" rx="1.1" fill="#0F2742" />
+          <circle cx="21" cy="21.1" r="1.3" fill="#1F9D63" />
+        </svg>MyMiniCloud</a>
+      <nav class="nav" aria-label="Main navigation"><a href="/">Home</a><a href="/blog/" aria-current="page">Blog</a>
+      </nav>
+    </div>
+  </header>
+  <section class="hero post-hero"
+    style="background-image:url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=2000&q=72');view-transition-name:img-b3">
+    <div class="wrap">
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>/</span><a
+          href="/blog/">Blog</a><span>/</span>Post 3</nav>
+      <span class="tag t-watch">Monitoring</span>
+      <h1>End-to-End Cloud Monitoring with Prometheus & Grafana</h1>
+      <p class="deck">You can't operate what you can't measure. Prometheus pulls metrics from every service; Grafana
+        turns them into charts anyone can read.</p>
+      <div class="meta"><span>By the student team</span><span>Published Oct 16, 2026</span><span>3 min read</span></div>
+    </div>
+    <p class="credit">Photo: <a href="https://unsplash.com/photos/JKUTrJ4vK00" target="_blank" rel="noopener">Luke
+        Chesser</a> / Unsplash</p>
+  </section>
+  <main id="main" class="wrap">
+    <div class="layout">
+      <aside class="toc">
+        <details>
+          <summary>In this post</summary>
+          <h2>In this post</h2>
+          <ol>
+            <li><a href="#pull">Prometheus's pull-based model</a></li>
+            <li><a href="#exporters">Exporters: a bridge to everything</a></li>
+            <li><a href="#promql">PromQL: asking your data questions</a></li>
+            <li><a href="#grafana">Grafana: turning numbers into a picture</a></li>
+            <li><a href="#alerting">Alerting before your users notice</a></li>
+            <li><a href="#what-to-measure">What should you measure?</a></li>
+          </ol>
+        </details>
+      </aside>
+      <div>
+        <article class="prose">
+          <p>A cloud system can have dozens of containers starting and stopping all the time. If you only find out about
+            a problem when users complain, it's already too late. <strong>Prometheus</strong> collects metrics as time
+            series, and <strong>Grafana</strong> visualizes them on live dashboards.</p>
+
+          <h2 id="pull">Prometheus's pull-based model</h2>
+          <p>Instead of each service pushing its metrics somewhere, Prometheus <strong>actively pulls</strong> (scrapes)
+            them on a fixed interval, say every 15 seconds, from each target's HTTP <code>/metrics</code> endpoint. This
+            has three advantages:</p>
+          <ul>
+            <li>You know immediately when a target goes down, because the failed scrape shows up in the <code>up</code>
+              metric.</li>
+            <li>Services don't need to know where Prometheus lives; they just expose an endpoint.</li>
+            <li>Adding or removing targets is a matter of central configuration.</li>
+          </ul>
+          <p>Each metric is a series of timestamped values with labels, for example
+            <code>http_requests_total{method="GET", status="200"}</code>.</p>
+
+          <h2 id="exporters">Exporters: a bridge to everything</h2>
+          <p>Not every piece of software ships with a <code>/metrics</code> endpoint. Exporters are small processes that
+            sit in between and translate metrics into a format Prometheus understands:</p>
+          <ul>
+            <li><strong>node_exporter</strong>: CPU, memory, disk and network of the host.</li>
+            <li><strong>cAdvisor</strong>: resource usage of each container.</li>
+            <li><strong>nginx-prometheus-exporter</strong>: Nginx connections and requests.</li>
+            <li><strong>blackbox_exporter</strong>: checks from the outside whether a URL responds.</li>
+          </ul>
+          <div class="code">
+            <div class="label"><span>prometheus.yml</span><button type="button">Copy</button></div>
+            <pre><code><span class="k">global:</span>
+  <span class="k">scrape_interval:</span> 15s
+
+<span class="k">scrape_configs:</span>
+  - <span class="k">job_name:</span> <span class="s">"node"</span>
+    <span class="k">static_configs:</span>
+      - <span class="k">targets:</span> [<span class="s">"node-exporter:9100"</span>]
+  - <span class="k">job_name:</span> <span class="s">"containers"</span>
+    <span class="k">static_configs:</span>
+      - <span class="k">targets:</span> [<span class="s">"cadvisor:8080"</span>]</code></pre>
+          </div>
+          <div class="note t-watch">
+            <p><b>About target names</b>When everything runs on the same Docker Compose network, services can reach each
+              other by service name, such as <code>node-exporter</code>, instead of an IP address.</p>
+          </div>
+
+          <h2 id="promql">PromQL: asking your data questions</h2>
+          <p>PromQL is Prometheus's query language. A few queries you'll use all the time:</p>
+          <div class="code">
+            <div class="label"><span>PromQL</span><button type="button">Copy</button></div>
+            <pre><code><span class="c"># Which targets are not responding?</span>
+up == 0
+
+<span class="c"># CPU usage in percent, averaged over 5 minutes</span>
+100 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100
+
+<span class="c"># Requests per second by status code</span>
+sum by (status) (rate(http_requests_total[1m]))</code></pre>
+          </div>
+          <p>The <code>rate()</code> function matters a lot: counters only ever go up, so what you usually want is
+            <strong>how fast they grow</strong>, not the absolute number.</p>
+
+          <h2 id="grafana">Grafana: turning numbers into a picture</h2>
+          <p>Grafana connects to Prometheus as a data source, and each panel on a dashboard runs one PromQL query. A
+            good dashboard answers “is the system OK?” within five seconds of looking at it.</p>
+          <ul>
+            <li>Put the most important metric in the top-left corner.</li>
+            <li>Use variables to filter by host or container instead of duplicating panels.</li>
+            <li>Import a community dashboard, such as “Node Exporter Full”, and tweak it from there.</li>
+          </ul>
+
+          <h2 id="alerting">Alerting before your users notice</h2>
+          <p>Alert rules are written in PromQL. When a condition stays true long enough, Prometheus sends the alert to
+            <strong>Alertmanager</strong>, which groups and deduplicates it and routes it to email, Slack or Telegram.
+          </p>
+          <div class="code">
+            <div class="label"><span>alert.rules.yml</span><button type="button">Copy</button></div>
+            <pre><code><span class="k">groups:</span>
+  - <span class="k">name:</span> basics
+    <span class="k">rules:</span>
+      - <span class="k">alert:</span> ServiceDown
+        <span class="k">expr:</span> up == 0
+        <span class="k">for:</span> 1m
+        <span class="k">labels:</span>
+          <span class="k">severity:</span> critical
+        <span class="k">annotations:</span>
+          <span class="k">summary:</span> <span class="s">"{{ $labels.job }} has not responded for over 1 minute"</span></code></pre>
+          </div>
+
+          <h2 id="what-to-measure">What should you measure?</h2>
+          <p>Two popular methods help you pick metrics without drowning in them:</p>
+          <ul>
+            <li><strong>RED</strong> for services: Rate (requests), Errors (error rate), Duration (latency).</li>
+            <li><strong>USE</strong> for resources: Utilization, Saturation, Errors.</li>
+          </ul>
+          <p>For MyMiniCloud, start with three questions: is the web container alive, is it responding quickly, and does
+            the host still have enough resources? Every more complex dashboard grows from there.</p>
+        </article>
+        <nav class="pager" aria-label="More posts"><a class="prev" href="/blog/blog2.html"><small>Previous
+              post</small><strong>Why Docker Became the Gold Standard of DevOps</strong></a><a class="next"
+            href="/blog/"><small>End of series</small><strong>Back to all posts</strong></a></nav>
+      </div>
+    </div>
+  </main>
+  <button class="totop" type="button" aria-label="Back to top"><svg width="20" height="20" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
+      aria-hidden="true">
+      <path d="M12 19V5M5 12l7-7 7 7" />
+    </svg></button>
+  <footer class="site-foot">
+    <div class="wrap">
+      <span>MyMiniCloud · A static site running in a student-built mini cloud</span>
+      <span>Background photos from Unsplash: <a href="https://unsplash.com/photos/JKUTrJ4vK00" target="_blank"
+          rel="noopener">Luke Chesser</a></span>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var bar = document.querySelector('.progress'), top = document.querySelector('.totop'), art = document.querySelector('.prose');
+      function onScroll() {
+        var r = art.getBoundingClientRect(), h = art.offsetHeight - innerHeight;
+        var p = Math.min(1, Math.max(0, -r.top / (h > 0 ? h : 1)));
+        bar.style.transform = 'scaleX(' + p + ')';
+        top.classList.toggle('show', scrollY > innerHeight);
+      }
+      addEventListener('scroll', onScroll, { passive: true }); onScroll();
+      top.addEventListener('click', function () { scrollTo({ top: 0, behavior: 'smooth' }); document.querySelector('.brand').focus({ preventScroll: true }); });
+      // highlight current section in TOC
+      var links = [].slice.call(document.querySelectorAll('.toc a'));
+      if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (es) {
+          es.forEach(function (e) {
+            if (e.isIntersecting) {
+              links.forEach(function (a) { a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id); });
+            }
+          });
+        }, { rootMargin: '0px 0px -70% 0px' });
+        document.querySelectorAll('.prose h2[id]').forEach(function (h) { io.observe(h); });
+      }
+      // copy buttons
+      document.querySelectorAll('.code button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var t = b.closest('.code').querySelector('code').innerText;
+          var done = function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1800); };
+          if (navigator.clipboard) { navigator.clipboard.writeText(t).then(done, function () { b.textContent = 'Copy failed'; }); }
+          else { var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); done(); } catch (e) { } a.remove(); }
+        });
+      });
+      // collapse TOC on small screens
+      var d = document.querySelector('.toc details');
+      if (d && matchMedia('(min-width:961px)').matches) d.open = true;
+    })();
+  </script>
+</body>
+
+</html>
